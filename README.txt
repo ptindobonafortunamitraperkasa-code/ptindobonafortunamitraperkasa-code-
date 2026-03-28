@@ -115,3 +115,5 @@ UPDATE BARU
 - Update terbaru: tombol Edit/Hapus Member dipastikan tampil dan ditambah fitur Edit Cabang.
 
 - Perbaikan terbaru: tombol Edit Cabang dan Edit Member dibikin lebih stabil dan bisa diklik.
+
+- Perbaikan terbaru: centang hak akses user sekarang tersimpan permanen ke Supabase.

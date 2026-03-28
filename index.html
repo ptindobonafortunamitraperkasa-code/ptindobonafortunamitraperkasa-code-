@@ -663,6 +663,22 @@ document.addEventListener("click", (e) => {
   }
 });
 
+
+document.addEventListener("change", async (e) => {
+  const box = e.target.closest("[data-perm-user]");
+  if(!box) return;
+  const userId = box.dataset.permUser;
+  const permKey = box.dataset.permKey;
+  const target = (appState.staff || []).find(s => s.id === userId);
+  if(!target) return;
+  const nextPerms = { ...(target.permissions_json || roleTemplates[target.role] || defaultPermissionTemplate) };
+  nextPerms[permKey] = box.checked;
+  target.permissions_json = nextPerms;
+  if(typeof saveUserPermissions === "function"){
+    await saveUserPermissions(userId, nextPerms);
+  }
+});
+
 </script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -1712,6 +1728,7 @@ async function addStaffUser(){
         password,
         role,
         branch,
+        permissions_json: roleTemplates[role] || defaultPermissionTemplate,
         created_at: new Date().toISOString()
       })
     });
@@ -1720,6 +1737,36 @@ async function addStaffUser(){
     notify("User login berhasil ditambahkan.");
   } catch(err){
     notify("Gagal menambah user: " + err.message);
+  }
+}
+
+
+async function saveUserPermissions(id, permissions){
+  const target = (appState.staff || []).find(s => s.id === id);
+  if(!target) return;
+  try{
+    await api("staff_users?id=eq." + encodeURIComponent(id), {
+      method:"PATCH",
+      headers:{ "Prefer":"return=minimal" },
+      body: JSON.stringify({
+        permissions_json: permissions
+      })
+    });
+    target.permissions_json = permissions;
+    if(session && session.username === target.username){
+      saveSession({
+        username: target.username,
+        password: target.password,
+        role: target.role,
+        branch: target.branch,
+        permissions
+      });
+    }
+    notify("Hak akses berhasil disimpan.");
+  } catch(err){
+    notify("Gagal menyimpan hak akses: " + err.message);
+    await loadAllData();
+    render();
   }
 }
 
@@ -1759,7 +1806,8 @@ async function editStaffUser(id){
         username: String(username).trim(),
         password: String(password).trim(),
         role: String(role).trim().toLowerCase(),
-        branch: String(branch).trim()
+        branch: String(branch).trim(),
+        permissions_json: target.permissions_json || roleTemplates[String(role).trim().toLowerCase()] || defaultPermissionTemplate
       })
     });
     await loadAllData();
@@ -2427,6 +2475,18 @@ function renderApp(){
     });
     root.querySelectorAll("[data-edit-staff]").forEach(btn=>{
       btn.onclick = ()=>editStaffUser(btn.dataset.editStaff);
+    });
+    root.querySelectorAll("[data-perm-user]").forEach(box=>{
+      box.onchange = async () => {
+        const userId = box.dataset.permUser;
+        const permKey = box.dataset.permKey;
+        const target = (appState.staff || []).find(s => s.id === userId);
+        if(!target) return;
+        const nextPerms = { ...(target.permissions_json || roleTemplates[target.role] || defaultPermissionTemplate) };
+        nextPerms[permKey] = box.checked;
+        target.permissions_json = nextPerms;
+        await saveUserPermissions(userId, nextPerms);
+      };
     });
   }
 }
