@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<link rel="icon" href="fortuna-logo-cropped.png">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fortuna Helmet Member Online</title>
@@ -586,12 +587,83 @@ th{
 .modal-actions{padding:0 20px 20px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap}
 .text-warning{color:#b45309}
 
+
+[data-edit-branch],[data-remove-branch],[data-edit-member],[data-delete-member]{
+  cursor:pointer !important;
+  position:relative;
+  z-index:5;
+}
+
+[data-edit-branch],[data-remove-branch]{
+  cursor:pointer !important;
+  position:relative;
+  z-index:20;
+}
 </style>
 </head>
 <body>
 <div class="loading" id="loading"><div class="spinner">Memproses...</div></div>
 <div id="root"></div>
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript">
+document.addEventListener("click", async (e) => {
+  const editBranchBtn = e.target.closest("[data-edit-branch]");
+  if(editBranchBtn){
+    e.preventDefault();
+    e.stopPropagation();
+    if(typeof editBranch === "function"){
+      await editBranch(editBranchBtn.dataset.editBranch);
+    }
+    return;
+  }
+
+  const removeBranchBtn = e.target.closest("[data-remove-branch]");
+  if(removeBranchBtn){
+    e.preventDefault();
+    e.stopPropagation();
+    if(typeof removeBranch === "function"){
+      await removeBranch(removeBranchBtn.dataset.removeBranch);
+    }
+    return;
+  }
+
+  const editMemberBtn = e.target.closest("[data-edit-member]");
+  if(editMemberBtn){
+    e.preventDefault();
+    e.stopPropagation();
+    if(typeof openEditMember === "function"){
+      openEditMember(editMemberBtn.dataset.editMember);
+    }
+    return;
+  }
+});
+
+
+document.addEventListener("click", async (e) => {
+  const editBranchBtn = e.target.closest("[data-edit-branch]");
+  if(editBranchBtn){
+    e.preventDefault();
+    e.stopPropagation();
+    if(typeof editBranch === "function"){
+      await editBranch(editBranchBtn.dataset.editBranch);
+    }
+  }
+});
+
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("#logout, #logout-side, [data-logout]");
+  if(btn){
+    e.preventDefault();
+    try{
+      if(typeof clearSession === "function"){ clearSession(); }
+      localStorage.clear();
+      sessionStorage.clear();
+    }catch(err){}
+    location.reload();
+  }
+});
+
+</script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -1698,6 +1770,60 @@ async function editStaffUser(id){
   }
 }
 
+
+async function editBranch(oldBranch){
+  const newBranch = prompt("Ubah nama cabang:", oldBranch);
+  if(newBranch === null) return;
+  const trimmed = String(newBranch).trim();
+  if(!trimmed){
+    notify("Nama cabang tidak boleh kosong.");
+    return;
+  }
+  const currentBranches = appState.settings?.branches || [];
+  if(currentBranches.some(b => String(b).toLowerCase() === trimmed.toLowerCase() && b !== oldBranch)){
+    notify("Nama cabang sudah ada.");
+    return;
+  }
+  try{
+    showLoading(true);
+
+    const updatedBranches = currentBranches.map(b => b === oldBranch ? trimmed : b);
+    await saveBranches(updatedBranches);
+
+    for(const m of (appState.members || []).filter(m => m.branch === oldBranch)){
+      await api("members?id=eq." + encodeURIComponent(m.id), {
+        method:"PATCH",
+        headers:{ "Prefer":"return=minimal" },
+        body: JSON.stringify({ branch: trimmed })
+      });
+    }
+
+    for(const t of (appState.transactions || []).filter(t => t.branch === oldBranch)){
+      await api("transactions?id=eq." + encodeURIComponent(t.id), {
+        method:"PATCH",
+        headers:{ "Prefer":"return=minimal" },
+        body: JSON.stringify({ branch: trimmed })
+      });
+    }
+
+    for(const s of (appState.staff || []).filter(s => s.branch === oldBranch)){
+      await api("staff_users?id=eq." + encodeURIComponent(s.id), {
+        method:"PATCH",
+        headers:{ "Prefer":"return=minimal" },
+        body: JSON.stringify({ branch: trimmed })
+      });
+    }
+
+    await loadAllData();
+    render();
+    notify("Nama cabang berhasil diubah.");
+  } catch(err){
+    notify("Gagal mengubah cabang: " + err.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
 function changeTab(tab){ ui.activeTab = tab; render(); }
 
 function renderSetup(errorMessage){
@@ -1741,7 +1867,7 @@ function renderSetup(errorMessage){
   `;
   document.getElementById("setup-url").oninput = e => ui.setup.url = e.target.value;
   document.getElementById("setup-key").oninput = e => ui.setup.key = e.target.value;
-  document.getElementById("save-setup").onclick = saveSetup;
+  const save_setup_el = document.getElementById("save-setup"); if(save_setup_el) save_setup_el.onclick = saveSetup;
 }
 
 function renderApp(){
@@ -1794,8 +1920,8 @@ function renderApp(){
     `;
     document.getElementById("login-username").oninput = e => ui.login.username = e.target.value;
     document.getElementById("login-password").oninput = e => ui.login.password = e.target.value;
-    document.getElementById("btn-login").onclick = login;
-    document.getElementById("btn-setup-again").onclick = () => renderSetup("");
+    const btn_login_el = document.getElementById("btn-login"); if(btn_login_el) btn_login_el.onclick = login;
+    const btn_setup_again_el = document.getElementById("btn-setup-again"); if(btn_setup_again_el) btn_setup_again_el.onclick = () => renderSetup("");
     return;
   }
 
@@ -1828,7 +1954,7 @@ function renderApp(){
           `).join("")}
         </div>
         <div class="sidebar-footer">
-          <button class="btn" id="logout-side">Logout</button>
+          <button class="btn" id="logout-side" data-logout="1">Logout</button>
         </div>
       </aside>
 
@@ -1964,7 +2090,7 @@ function renderApp(){
                       <td>${m.points}</td>
                       <td><span class="badge">${tier(m.points,appState.settings)}</span></td>
                       <td><button class="btn small" data-view-card="${esc(m.code)}">Lihat</button></td>
-                      ${canAccess("delete_member") ? `<td class="inline"><button class="btn small" data-edit-member="${esc(m.code)}">Edit</button><button class="btn small danger" data-delete-member="${esc(m.code)}">Hapus</button></td>` : `<td><button class="btn small" data-edit-member="${esc(m.code)}">Edit</button></td>`}
+                      ${canAccess("delete_member") ? `<td class="inline"><button type="button" class="btn small" data-edit-member="${esc(m.code)}">Edit</button><button type="button" class="btn small danger" data-delete-member="${esc(m.code)}">Hapus</button></td>` : `<td><button type="button" class="btn small" data-edit-member="${esc(m.code)}">Edit</button></td>`}
                     </tr>
                     <tr class="hidden" id="card-${esc(m.code)}"><td colspan="${canAccess("delete_member")?8:7}">
                       ${memberCardHTML(m)}
@@ -2098,8 +2224,8 @@ function renderApp(){
                   ${branches.map(b=>`<div class="inline" style="justify-content:space-between;border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-top:8px;background:#fff">
                     <span>${esc(b)}</span>
                     <div class="inline">
-                      <button class="btn small" data-edit-branch="${esc(b)}">Edit</button>
-                      <button class="btn small danger" data-remove-branch="${esc(b)}">Hapus</button>
+                      <button type="button" class="btn small" data-edit-branch="${esc(b)}">Edit</button>
+                      <button type="button" class="btn small danger" data-remove-branch="${esc(b)}">Hapus</button>
                     </div>
                   </div>`).join("")}
                 </div>
@@ -2208,9 +2334,9 @@ function renderApp(){
   `
 
   root.querySelectorAll("[data-tab]").forEach(el=>el.onclick=()=>changeTab(el.dataset.tab));
-  document.getElementById("export-members").onclick = ()=>exportMembers(getSelectedExportBranch("export-member-branch"));
-  document.getElementById("export-transactions").onclick = ()=>exportTransactions(getSelectedExportBranch("export-transaction-branch"));
-  document.getElementById("setup-again").onclick = () => renderSetup("");
+  const export_members_el = document.getElementById("export-members"); if(export_members_el) export_members_el.onclick = ()=>exportMembers(getSelectedExportBranch("export-member-branch"));
+  const export_transactions_el = document.getElementById("export-transactions"); if(export_transactions_el) export_transactions_el.onclick = ()=>exportTransactions(getSelectedExportBranch("export-transaction-branch"));
+  const setup_again_el = document.getElementById("setup-again"); if(setup_again_el) setup_again_el.onclick = () => renderSetup("");
   const logoutSide = document.getElementById("logout-side");
   if(logoutSide) logoutSide.onclick = () => { clearSession(); render(); };
 
@@ -2273,7 +2399,7 @@ function renderApp(){
 
   if(document.getElementById("scan-input")){
     document.getElementById("scan-input").oninput = e=>ui.scanInput=e.target.value;
-    document.getElementById("scan-btn").onclick = handleScan;
+    const scan_btn_el = document.getElementById("scan-btn"); if(scan_btn_el) scan_btn_el.onclick = handleScan;
     const startBtn = document.getElementById("start-camera-btn");
     const stopBtn = document.getElementById("stop-camera-btn");
     if(startBtn) startBtn.onclick = startCameraScanner;

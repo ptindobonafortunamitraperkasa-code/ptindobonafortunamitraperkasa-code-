@@ -113,3 +113,5 @@ UPDATE BARU
 - Update terbaru: member sekarang bisa diedit dan dihapus langsung dari menu Member.
 
 - Update terbaru: tombol Edit/Hapus Member dipastikan tampil dan ditambah fitur Edit Cabang.
+
+- Perbaikan terbaru: tombol Edit Cabang dan Edit Member dibikin lebih stabil dan bisa diklik.
