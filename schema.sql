@@ -131,3 +131,19 @@ values (
   '{"dashboard":true,"members":true,"add_member":true,"delete_member":true,"transactions":true,"add_transaction":true,"voucher":true,"scanner":true,"export":true,"settings":true,"branches_manage":true,"users_manage":true}'::jsonb
 )
 on conflict (username) do nothing;
+
+
+alter table public.members add column if not exists referred_by_code text;
+alter table public.members add column if not exists referred_by_name text;
+
+alter table public.app_settings add column if not exists member_code_prefix text default 'IBF';
+alter table public.app_settings add column if not exists member_code_separator text default '-';
+alter table public.app_settings add column if not exists member_code_digits integer default 4;
+alter table public.app_settings add column if not exists next_code_number integer default 1;
+
+update public.app_settings
+set member_code_prefix = coalesce(member_code_prefix, 'IBF'),
+    member_code_separator = coalesce(member_code_separator, '-'),
+    member_code_digits = coalesce(member_code_digits, 4),
+    next_code_number = coalesce(next_code_number, 1)
+where id = 'main';

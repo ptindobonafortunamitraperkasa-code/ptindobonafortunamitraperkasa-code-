@@ -117,3 +117,14 @@ UPDATE BARU
 - Perbaikan terbaru: tombol Edit Cabang dan Edit Member dibikin lebih stabil dan bisa diklik.
 
 - Perbaikan terbaru: centang hak akses user sekarang tersimpan permanen ke Supabase.
+
+- Update terbaru: QR member sekarang membuka kartu digital member langsung di browser/HP luar aplikasi.
+
+
+- Update fitur terbaru:
+  - level member bisa diatur sendiri dari Pengaturan (JSON tiers)
+  - kode member bisa diatur sendiri: prefix, separator, digit, dan nomor urut berikutnya
+  - poin transaksi otomatis mengikuti setting nominal/poin
+  - tambah referral member saat daftar member baru
+  - QR member jika discan di HP luar aplikasi akan membuka kartu member digital
+  - dashboard sekarang bisa difilter berdasarkan cabang
