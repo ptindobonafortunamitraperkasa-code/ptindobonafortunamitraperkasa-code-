@@ -599,6 +599,13 @@ th{
   position:relative;
   z-index:20;
 }
+
+.money-field{position:relative}
+.money-field .rp{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:#64748b;font-weight:700;pointer-events:none
+}
+.money-field input{padding-left:42px !important}
 </style>
 </head>
 <body>
@@ -692,6 +699,8 @@ const APP_NAME = "Fortuna Helmet Member Online";
 const DEFAULT_PUBLIC_SUPABASE_URL = "https://wpmkdwqgttztbmenwqzs.supabase.co";
 const DEFAULT_PUBLIC_SUPABASE_KEY = "sb_publishable_1qnOWkwhqKKskt9w36PEUw_az0suHCr";
 const PUBLIC_CARD_PARAM = "card";
+const PUBLIC_CARD_DB_PARAM = "db";
+const PUBLIC_CARD_KEY_PARAM = "pk";
 const CONFIG_KEY = "ibf_supabase_config_v1";
 const SESSION_KEY = "ibf_member_session_v1";
 
@@ -791,7 +800,7 @@ let ui = {
   setup: { url: appConfig?.url || "", key: appConfig?.key || "" },
   login: { username: "", password: "" },
   newMember: { name: "", phone: "", email: "", branch: "Palangka Raya", referredByCode: "" },
-  trx: { memberCode: "", amount: "", branch: "Palangka Raya", note: "", type: "earn", manualPoints: "" },
+  trx: { memberCode: "", amount: "", branch: "Palangka Raya", note: "", type: "earn", manualPoints: "", referredByCode: "" },
   dashboard: { branchFilter: "ALL" },
   voucher: { memberCode: "", points: "", note: "" },
   editMember: { id: "", code: "", name: "", phone: "", email: "", branch: "", isOpen: false }
@@ -823,9 +832,13 @@ function qrDataUrl(text){
 }
 
 function publicCardUrl(memberCode){
-  const url = new URL(window.location.href);
+  const url = new URL(window.location.origin + window.location.pathname);
   url.search = "";
   url.searchParams.set(PUBLIC_CARD_PARAM, String(memberCode || ""));
+  const dbUrl = appConfig?.url || DEFAULT_PUBLIC_SUPABASE_URL;
+  const dbKey = appConfig?.key || DEFAULT_PUBLIC_SUPABASE_KEY;
+  if(dbUrl) url.searchParams.set(PUBLIC_CARD_DB_PARAM, dbUrl);
+  if(dbKey) url.searchParams.set(PUBLIC_CARD_KEY_PARAM, dbKey);
   return url.toString();
 }
 function extractMemberLookup(raw){
@@ -841,10 +854,12 @@ function extractMemberLookup(raw){
 function ensurePublicConfigIfNeeded(){
   const params = new URLSearchParams(window.location.search);
   const publicCardCode = params.get(PUBLIC_CARD_PARAM);
+  const dbUrl = params.get(PUBLIC_CARD_DB_PARAM);
+  const dbKey = params.get(PUBLIC_CARD_KEY_PARAM);
   if(publicCardCode && (!appConfig?.url || !appConfig?.key)){
     appConfig = {
-      url: DEFAULT_PUBLIC_SUPABASE_URL,
-      key: DEFAULT_PUBLIC_SUPABASE_KEY
+      url: dbUrl || DEFAULT_PUBLIC_SUPABASE_URL,
+      key: dbKey || DEFAULT_PUBLIC_SUPABASE_KEY
     };
   }
   return publicCardCode;
@@ -875,7 +890,7 @@ function renderPublicMemberCard(){
           <div>
             <div class="badge">Kartu Member Digital</div>
             <h1 style="margin-top:12px">${APP_NAME}</h1>
-            <div class="subtitle">Kartu ini dapat dibuka langsung dari scan QR melalui browser HP.</div>
+            <div class="subtitle">Kartu ini dapat dibuka langsung dari scan QR melalui browser HP, Google Lens, atau kamera luar aplikasi.</div>
           </div>
         </div>
         ${memberCardPremium(member)}
@@ -948,7 +963,8 @@ async function loadAllData(){
     appState.transactions = (transactions || []).map(r => ({
       id: r.id, memberCode: r.member_code, memberName: r.member_name, type: r.type,
       amount: Number(r.amount || 0), points: Number(r.points || 0), branch: r.branch,
-      note: r.note || "", createdAt: r.created_at, cashier: r.cashier
+      note: r.note || "", createdAt: r.created_at, cashier: r.cashier,
+      referredByCode: r.referred_by_code || "", referredByName: r.referred_by_name || ""
     }));
     appState.vouchers = (vouchers || []).map(r => ({
       id: r.id, memberCode: r.member_code, memberName: r.member_name, points: Number(r.points || 0),
@@ -988,11 +1004,13 @@ async function loadAllData(){
 }
 
 function summary(){
+  const members = filteredMembersForDashboard();
+  const trx = filteredTransactionsForDashboard();
   return {
-    totalMembers: appState.members.length,
-    totalPoints: appState.members.reduce((s,m)=>s+Number(m.points||0),0),
-    totalSpend: appState.members.reduce((s,m)=>s+Number(m.totalSpend||0),0),
-    todayTrx: appState.transactions.filter(t=>new Date(t.createdAt).toDateString()===new Date().toDateString()).length
+    totalMembers: members.length,
+    totalPoints: members.reduce((s,m)=>s+Number(m.points||0),0),
+    totalSpend: trx.reduce((s,t)=>s+Number(t.amount||0),0),
+    todayTrx: trx.filter(t=>new Date(t.createdAt).toDateString()===new Date().toDateString()).length
   };
 }
 
@@ -1190,6 +1208,7 @@ async function submitTransaction(){
   const member = appState.members.find(m=>m.code===t.memberCode);
   if(!member){ notify("Member tidak ditemukan."); return; }
   const amount = Number(t.amount || 0);
+  const refMember = (appState.members || []).find(m => m.code === t.referredByCode);
   let points = 0;
   if(t.type === "earn"){
     points = t.manualPoints ? Number(t.manualPoints) : Math.floor(amount / Number(appState.settings.amountPerPoint || 1)) * Number(appState.settings.pointsPerAmount || 1);
@@ -1211,7 +1230,9 @@ async function submitTransaction(){
     const trx = {
       id: uid(), member_code: member.code, member_name: member.name, type: t.type, amount, points,
       branch: t.branch, note: t.note || "", created_at: new Date().toISOString(),
-      cashier: currentUser()?.username || "admin"
+      cashier: currentUser()?.username || "admin",
+      referred_by_code: refMember?.code || "",
+      referred_by_name: refMember?.name || ""
     };
     await api("transactions", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: JSON.stringify(trx) });
 
@@ -2230,7 +2251,7 @@ function renderApp(){
                 <option value="">Tanpa referral</option>
                 ${appState.members.map(m=>`<option value="${esc(m.code)}" ${ui.newMember.referredByCode===m.code?'selected':''}>${esc(m.code)} - ${esc(m.name)}</option>`).join("")}
               </select>
-              <div class="hint" style="margin-top:10px">Kode member berikutnya: <b>${esc(nextCode(appState.members, appState.settings))}</b></div>
+              <div class="hint" style="margin-top:10px">Kode member berikutnya otomatis: <b>${esc(nextCode(appState.members, appState.settings))}</b></div>
               <div style="margin-top:14px">${canAccess("add_member") ? `<button class="btn primary" id="add-member">Tambah Member</button>` : `<div class="hint">Akses tambah member dimatikan.</div>`}</div>
             </div>
 
@@ -2281,8 +2302,14 @@ function renderApp(){
                 <option value="earn" ${ui.trx.type==="earn"?'selected':''}>Belanja / tambah poin otomatis</option>
                 <option value="adjust" ${ui.trx.type==="adjust"?'selected':''}>Penyesuaian poin manual</option>
               </select>
-              <label>Nominal Belanja (Rp)</label><input id="trx-amount" type="number" value="${esc(ui.trx.amount)}" />
+              <label>Nominal Belanja</label><div class="money-field"><span class="rp">Rp</span><input id="trx-amount" type="number" value="${esc(ui.trx.amount)}" /></div>
+              <div class="hint" style="margin-top:8px">Perhitungan otomatis: Rp ${Number(appState.settings.amountPerPoint || 0).toLocaleString("id-ID")} = ${Number(appState.settings.pointsPerAmount || 0)} poin</div>
               <label>Poin Manual (opsional)</label><input id="trx-points" type="number" value="${esc(ui.trx.manualPoints)}" />
+              <label>Referral dari Member (opsional)</label>
+              <select id="trx-referred-by">
+                <option value="">Tanpa referral</option>
+                ${appState.members.map(m=>`<option value="${esc(m.code)}" ${ui.trx.referredByCode===m.code?'selected':''}>${esc(m.code)} - ${esc(m.name)}</option>`).join("")}
+              </select>
               <label>Cabang</label><select id="trx-branch">${branches.map(b=>`<option ${ui.trx.branch===b?'selected':''}>${esc(b)}</option>`).join("")}</select>
               <label>Catatan</label><input id="trx-note" value="${esc(ui.trx.note)}" />
               <div style="margin-top:14px">${canAccess("add_transaction") ? `<button class="btn primary" id="save-trx">Simpan Transaksi</button>` : `<div class="hint">Akses input transaksi dimatikan.</div>`}</div>
@@ -2290,10 +2317,10 @@ function renderApp(){
             <div class="card pad" style="grid-column:span 2">
               <h2 style="margin-bottom:12px">Riwayat Transaksi</h2>
               <div class="table-wrap"><table>
-                <thead><tr><th>Tanggal</th><th>Member</th><th>Jenis</th><th>Nominal</th><th>Poin</th><th>Cabang</th><th>Kasir</th></tr></thead>
+                <thead><tr><th>Tanggal</th><th>Member</th><th>Referral</th><th>Jenis</th><th>Nominal</th><th>Poin</th><th>Cabang</th><th>Kasir</th></tr></thead>
                 <tbody>
                   ${appState.transactions.map(t=>`<tr>
-                    <td>${dt(t.createdAt)}</td><td>${esc(t.memberCode)} - ${esc(t.memberName)}</td><td><span class="badge">${esc(t.type)}</span></td>
+                    <td>${dt(t.createdAt)}</td><td>${esc(t.memberCode)} - ${esc(t.memberName)}</td><td>${t.referredByName ? esc(t.referredByName) : "-"}</td><td><span class="badge">${esc(t.type)}</span></td>
                     <td>${money(t.amount)}</td><td>${t.points}</td><td>${esc(t.branch)}</td><td>${esc(t.cashier)}</td>
                   </tr>`).join("")}
                 </tbody>
@@ -2583,12 +2610,24 @@ function renderApp(){
     const codeSeparator = document.getElementById("set-code-separator");
     const codeDigits = document.getElementById("set-code-digits");
     const codeNext = document.getElementById("set-code-next");
-    const tiersJson = document.getElementById("set-tiers-json");
+    const bronze = document.getElementById("tier-bronze");
+    const silver = document.getElementById("tier-silver");
+    const gold = document.getElementById("tier-gold");
+    const platinum = document.getElementById("tier-platinum");
+    const saveTiers = () => updateSettings("tiers", [
+      { name: "Bronze", minPoints: Number(bronze?.value || 0) },
+      { name: "Silver", minPoints: Number(silver?.value || 0) },
+      { name: "Gold", minPoints: Number(gold?.value || 0) },
+      { name: "Platinum", minPoints: Number(platinum?.value || 0) }
+    ]);
     if(codePrefix) codePrefix.onchange = e=>updateSettings("memberCodePrefix", e.target.value);
     if(codeSeparator) codeSeparator.onchange = e=>updateSettings("memberCodeSeparator", e.target.value);
     if(codeDigits) codeDigits.onchange = e=>updateSettings("memberCodeDigits", e.target.value);
     if(codeNext) codeNext.onchange = e=>updateSettings("nextCodeNumber", e.target.value);
-    if(tiersJson) tiersJson.onchange = e=>{ try{ updateSettings("tiers", JSON.parse(e.target.value)); } catch(err){ notify("Format level member JSON tidak valid."); } };
+    if(bronze) bronze.onchange = saveTiers;
+    if(silver) silver.onchange = saveTiers;
+    if(gold) gold.onchange = saveTiers;
+    if(platinum) platinum.onchange = saveTiers;
     const addBtn = document.getElementById("add-branch-btn");
     if(addBtn) addBtn.onclick = addBranch;
     root.querySelectorAll("[data-remove-branch]").forEach(btn=>{

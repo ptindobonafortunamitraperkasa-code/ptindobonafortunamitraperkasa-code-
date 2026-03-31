@@ -147,3 +147,6 @@ set member_code_prefix = coalesce(member_code_prefix, 'IBF'),
     member_code_digits = coalesce(member_code_digits, 4),
     next_code_number = coalesce(next_code_number, 1)
 where id = 'main';
+
+alter table public.transactions add column if not exists referred_by_code text;
+alter table public.transactions add column if not exists referred_by_name text;

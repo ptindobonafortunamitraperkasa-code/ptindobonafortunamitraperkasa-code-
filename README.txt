@@ -128,3 +128,12 @@ UPDATE BARU
   - tambah referral member saat daftar member baru
   - QR member jika discan di HP luar aplikasi akan membuka kartu member digital
   - dashboard sekarang bisa difilter berdasarkan cabang
+
+
+- Perbaikan lanjutan:
+  - pengaturan level member dibuat lebih mudah (field Bronze/Silver/Gold/Platinum)
+  - pengaturan kode member IFMP0001 lebih jelas dan otomatis lanjut urutan
+  - transaksi sekarang punya field referral member dan tampil di riwayat
+  - nominal transaksi dan voucher diberi tampilan Rp
+  - filter dashboard benar-benar memengaruhi ringkasan, grafik, dan transaksi terbaru
+  - QR publik sekarang membawa konfigurasi database agar kartu bisa dibuka dari HP luar aplikasi
