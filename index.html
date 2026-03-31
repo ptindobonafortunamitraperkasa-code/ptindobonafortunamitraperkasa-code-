@@ -819,6 +819,20 @@ function tier(points, settings){
   arr.forEach(t=>{ if(Number(points)>=Number(t.minPoints)) current=t.name; });
   return current;
 }
+
+function memberReferralCount(memberCode){
+  return (appState.members || []).filter(m => String(m.referredByCode || "") === String(memberCode || "")).length;
+}
+function referralRows(){
+  return (appState.members || []).filter(m => m.referredByCode).map(m => ({
+    joinedName: m.name,
+    joinedCode: m.code,
+    refName: m.referredByName || "-",
+    refCode: m.referredByCode || "-",
+    branch: m.branch || "-",
+    joinedAt: m.joinedAt || ""
+  }));
+}
 function qrDataUrl(text){
   try{
     if(typeof qrcode !== "undefined"){
@@ -1474,7 +1488,7 @@ function memberCardHTML(member){
           <div class="card-id-bottom">${esc(member.code)}</div>
           <div class="small-note">Poin ${member.points} • Total Belanja ${money(member.totalSpend)}</div>
           <div class="small-note">Cabang Member: ${esc(member.branch)}</div>
-          <div class="small-note">Referral: ${member.referredByName ? esc(member.referredByName) : "-"}</div>
+          <div class="small-note">Referral dari: ${member.referredByName ? esc(member.referredByName) : "-"}</div>\n          <div class="small-note">Berhasil mengajak: ${memberReferralCount(member.code)} member</div>
         </div>
         <div class="level-chip">
           <div class="left">Level</div>
@@ -2288,6 +2302,26 @@ function renderApp(){
                 </tbody>
               </table></div>
             </div>
+
+            <div class="card pad" style="grid-column:span 2">
+              <div class="toolbar-row">
+                <h2>Daftar Referral Member</h2>
+                <div class="hint">Menampilkan member yang bergabung menggunakan referral siapa.</div>
+              </div>
+              <div class="table-wrap"><table>
+                <thead><tr><th>Member Baru</th><th>Kode Baru</th><th>Referral Dari</th><th>Kode Referral</th><th>Cabang</th><th>Tanggal Gabung</th></tr></thead>
+                <tbody>
+                  ${referralRows().length ? referralRows().map(r=>`<tr>
+                    <td>${esc(r.joinedName)}</td>
+                    <td>${esc(r.joinedCode)}</td>
+                    <td>${esc(r.refName)}</td>
+                    <td>${esc(r.refCode)}</td>
+                    <td>${esc(r.branch)}</td>
+                    <td>${dt(r.joinedAt)}</td>
+                  </tr>`).join("") : `<tr><td colspan="6" class="muted">Belum ada data referral.</td></tr>`}
+                </tbody>
+              </table></div>
+            </div>
           </div>
         </div>
 
@@ -2624,6 +2658,20 @@ function renderApp(){
     if(codeSeparator) codeSeparator.onchange = e=>updateSettings("memberCodeSeparator", e.target.value);
     if(codeDigits) codeDigits.onchange = e=>updateSettings("memberCodeDigits", e.target.value);
     if(codeNext) codeNext.onchange = e=>updateSettings("nextCodeNumber", e.target.value);
+    const presetIfmp = document.getElementById("preset-ifmp");
+    const presetAsh = document.getElementById("preset-ash");
+    if(presetIfmp) presetIfmp.onclick = async ()=>{ 
+      await updateSettings("memberCodePrefix", "IFMP");
+      await updateSettings("memberCodeSeparator", "");
+      await updateSettings("memberCodeDigits", 4);
+      render();
+    };
+    if(presetAsh) presetAsh.onclick = async ()=>{ 
+      await updateSettings("memberCodePrefix", "ASH");
+      await updateSettings("memberCodeSeparator", "");
+      await updateSettings("memberCodeDigits", 4);
+      render();
+    };
     if(bronze) bronze.onchange = saveTiers;
     if(silver) silver.onchange = saveTiers;
     if(gold) gold.onchange = saveTiers;

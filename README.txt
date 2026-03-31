@@ -139,3 +139,5 @@ UPDATE BARU
   - QR publik sekarang membawa konfigurasi database agar kartu bisa dibuka dari HP luar aplikasi
 
 - Final fix: pengaturan kode/level memakai upsert + tombol simpan eksplisit.
+
+- Tambahan: tombol preset kode IFMP/ASH dan laporan referral member.
