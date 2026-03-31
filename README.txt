@@ -137,3 +137,5 @@ UPDATE BARU
   - nominal transaksi dan voucher diberi tampilan Rp
   - filter dashboard benar-benar memengaruhi ringkasan, grafik, dan transaksi terbaru
   - QR publik sekarang membawa konfigurasi database agar kartu bisa dibuka dari HP luar aplikasi
+
+- Final fix: pengaturan kode/level memakai upsert + tombol simpan eksplisit.
