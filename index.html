@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -1192,71 +1191,28 @@ async function addMember(){
   try{
     showLoading(true);
     await loadAllData();
-async function addMember(){
-  const f = ui.newMember;
-  if(!f.name || !f.phone || !f.branch){ notify("Nama, nomor HP, dan cabang wajib diisi."); return; }
-  try{
-    showLoading(true);
-    await loadAllData();
-   async function addMember(){
-  const f = ui.newMember;
-  if(!f.name || !f.phone || !f.branch){ notify("Nama, nomor HP, dan cabang wajib diisi."); return; }
-  try{
-    showLoading(true);
-    await loadAllData();
-   async function addMember(){
-  const f = ui.newMember;
-  if(!f.name || !f.phone || !f.branch){ notify("Nama, nomor HP, dan cabang wajib diisi."); return; }
-  try{
-    showLoading(true);
-    await loadAllData();
-    async function addMember(){
-  const f = ui.newMember;
-  if(!f.name || !f.phone || !f.branch){ notify("Nama, nomor HP, dan cabang wajib diisi."); return; }
-  try{
-    showLoading(true);
-    await loadAllData();
-   const code = nextCode(appState.members, appState.settings);
+    const code = nextCode(appState.members, appState.settings);
+    const refMember = (appState.members || []).find(m => m.code === f.referredByCode);
     const memberPayload = {
       id: uid(), code, name: f.name, phone: f.phone, email: f.email || "",
       branch: f.branch, joined_at: new Date().toISOString(), points: Number(appState.settings.registrationBonus || 0),
-      total_spend: 0, created_at: new Date().toISOString()
-    };
-    await api("members", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: JSON.stringify(memberPayload) });
-    const memberPayload = {
-      id: uid(), code, name: f.name, phone: f.phone, email: f.email || "",
-      branch: f.branch, joined_at: new Date().toISOString(), points: Number(appState.settings.registrationBonus || 0),
-      total_spend: 0, created_at: new Date().toISOString()
-    };
-    await api("members", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: JSON.stringify(memberPayload) });
-    const memberPayload = {
-      id: uid(), code, name: f.name, phone: f.phone, email: f.email || "",
-      branch: f.branch, joined_at: new Date().toISOString(), points: Number(appState.settings.registrationBonus || 0),
-      total_spend: 0, created_at: new Date().toISOString()
-    };
-    await api("members", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: JSON.stringify(memberPayload) });
-    const memberPayload = {
-      id: uid(), code, name: f.name, phone: f.phone, email: f.email || "",
-      branch: f.branch, joined_at: new Date().toISOString(), points: Number(appState.settings.registrationBonus || 0),
-      total_spend: 0, created_at: new Date().toISOString()
-    };
-    await api("members", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: JSON.stringify(memberPayload) });
-    const memberPayload = {
-      id: uid(), code, name: f.name, phone: f.phone, email: f.email || "",
-      branch: f.branch, joined_at: new Date().toISOString(), points: Number(appState.settings.registrationBonus || 0),
-      total_spend: 0, created_at: new Date().toISOString()
+      total_spend: 0, created_at: new Date().toISOString(),
+      referred_by_code: refMember?.code || "",
+      referred_by_name: refMember?.name || ""
     };
     await api("members", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: JSON.stringify(memberPayload) });
 
     const bonus = {
       id: uid(), member_code: code, member_name: f.name, type:"bonus", amount:0,
       points:Number(appState.settings.registrationBonus || 0), branch:f.branch,
-      note:"Bonus pendaftaran member", created_at:new Date().toISOString(),
+      note:"Bonus pendaftaran member" + (refMember ? " | Referral dari " + refMember.name : ""), created_at:new Date().toISOString(),
       cashier: currentUser()?.username || "system"
     };
     await api("transactions", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: JSON.stringify(bonus) });
 
-    ui.newMember = { name:"", phone:"", email:"", branch: currentUser()?.branch || appState.settings.branches[0] || "" };
+    await updateSettings("nextCodeNumber", Number(appState.settings.nextCodeNumber || 1) + 1);
+
+    ui.newMember = { name:"", phone:"", email:"", branch: currentUser()?.branch || appState.settings.branches[0] || "", referredByCode:"" };
     await loadAllData();
     notify("Member berhasil ditambahkan.");
     render();
