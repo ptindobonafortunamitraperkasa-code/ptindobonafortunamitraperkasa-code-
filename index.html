@@ -2781,6 +2781,74 @@ render();
 if((appConfig?.url && appConfig?.key) || new URLSearchParams(window.location.search).get(PUBLIC_CARD_PARAM)){
   initializeIfNeeded();
 }
+    // === FORCE FIX ADD MEMBER & KODE ===
+
+// pastikan nextCode pakai settings
+function nextCode(members, settings){
+  const prefix = String(settings?.memberCodePrefix || "IBF");
+  const separator = String(settings?.memberCodeSeparator || "-");
+  const digits = Number(settings?.memberCodeDigits || 4);
+
+  let max = 0;
+
+  (members || []).forEach(m => {
+    const raw = String(m.code || "");
+    const num = raw.replace(/\D/g, "");
+    const n = Number(num);
+    if(!isNaN(n) && n > max) max = n;
+  });
+
+  const next = max + 1;
+
+  return prefix + separator + String(next).padStart(digits, "0");
+}
+
+// override semua addMember lama
+addMember = async function(){
+  const f = ui.newMember;
+
+  if(!f.name || !f.phone || !f.branch){
+    notify("Nama, nomor HP, dan cabang wajib diisi.");
+    return;
+  }
+
+  try{
+    showLoading(true);
+    await loadAllData();
+
+    const code = nextCode(appState.members, appState.settings);
+
+    const memberPayload = {
+      id: uid(),
+      code,
+      name: f.name,
+      phone: f.phone,
+      email: f.email || "",
+      branch: f.branch,
+      joined_at: new Date().toISOString(),
+      points: Number(appState.settings.registrationBonus || 0),
+      total_spend: 0,
+      created_at: new Date().toISOString()
+    };
+
+    await api("members", {
+      method:"POST",
+      headers:{ "Prefer":"return=minimal" },
+      body: JSON.stringify(memberPayload)
+    });
+
+    await loadAllData();
+    render();
+
+    notify("Member berhasil ditambahkan");
+
+  }catch(e){
+    console.error(e);
+    notify("Gagal tambah member");
+  }finally{
+    showLoading(false);
+  }
+};
 </script>
 </body>
 </html>
