@@ -8370,151 +8370,70 @@ if((appConfig?.url && appConfig?.key) || new URLSearchParams(window.location.sea
     }
   }
 
-  function injectPointSettingsUI(){
-    try{
-      applySettingsToAppState();
+ <script>
+function injectPointSettingsUI(){
+  try{
+    if(document.getElementById("point-expiry-settings-box")) return;
 
-      if(document.getElementById("point-expiry-settings-box")) return;
+    const leftCards = Array.from(document.querySelectorAll(".card.pad, .card"));
+    let targetCard = null;
 
-      const candidates = Array.from(document.querySelectorAll(".card.pad, .card"));
-      let targetCard = null;
-
-      for(const el of candidates){
-        const txt = (el.innerText || "").toLowerCase();
-        if(
-          txt.includes("bonus registrasi") ||
-          txt.includes("redeem") ||
-          txt.includes("poin per") ||
-          txt.includes("pengaturan")
-        ){
-          targetCard = el;
-          break;
-        }
+    for(const el of leftCards){
+      const txt = (el.innerText || "").toLowerCase();
+      if(txt.includes("pengaturan sistem")){
+        targetCard = el;
+        break;
       }
-
-      if(!targetCard) return;
-
-      const st = getPatchSettings();
-
-      const wrap = document.createElement("div");
-      wrap.id = "point-expiry-settings-box";
-      wrap.style.marginTop = "16px";
-      wrap.innerHTML = `
-        <div style="padding:16px;border:1px solid var(--line);border-radius:18px;background:#f8fbff">
-          <div style="font-weight:800;font-size:16px;margin-bottom:10px">Pengaturan Poin Hangus Otomatis</div>
-
-          <label>Masa aktif poin (hari)</label>
-          <input id="patch-point-expiry-days" type="number" min="1" value="${st.pointExpiryDays}" />
-
-          <label style="margin-top:12px">Target poin minimal</label>
-          <input id="patch-point-target" type="number" min="1" value="${st.pointTarget}" />
-
-          <div class="footer-note" style="margin-top:10px">
-            Jika poin member belum mencapai <b id="patch-target-preview">${st.pointTarget}</b> poin dalam
-            <b id="patch-expiry-preview">${st.pointExpiryDays}</b> hari sejak penambahan poin terakhir,
-            maka poin akan hangus otomatis.
-          </div>
-        </div>
-      `;
-      targetCard.appendChild(wrap);
-
-      const expiryInput = document.getElementById("patch-point-expiry-days");
-      const targetInput = document.getElementById("patch-point-target");
-      const expiryPreview = document.getElementById("patch-expiry-preview");
-      const targetPreview = document.getElementById("patch-target-preview");
-
-      if(expiryInput){
-        expiryInput.addEventListener("change", () => {
-          const val = Math.max(1, safeNumber(expiryInput.value, 30));
-          expiryInput.value = val;
-          const next = savePatchSettings({ pointExpiryDays: val });
-          applySettingsToAppState();
-          if(expiryPreview) expiryPreview.textContent = next.pointExpiryDays;
-          if(typeof notify === "function") notify("Masa aktif poin berhasil disimpan.");
-        });
-      }
-
-      if(targetInput){
-        targetInput.addEventListener("change", () => {
-          const val = Math.max(1, safeNumber(targetInput.value, 100));
-          targetInput.value = val;
-          const next = savePatchSettings({ pointTarget: val });
-          applySettingsToAppState();
-          if(targetPreview) targetPreview.textContent = next.pointTarget;
-          if(typeof notify === "function") notify("Target poin berhasil disimpan.");
-        });
-      }
-    }catch(err){
-      console.error("injectPointSettingsUI error:", err);
     }
+
+    if(!targetCard) return;
+
+    const raw = JSON.parse(localStorage.getItem("fortuna_point_expiry_patch_v1") || "{}");
+    const expiryDays = Number(raw.pointExpiryDays || 30);
+    const pointTarget = Number(raw.pointTarget || 100);
+
+    const wrap = document.createElement("div");
+    wrap.id = "point-expiry-settings-box";
+    wrap.innerHTML = `
+      <div style="margin-top:16px;padding:16px;border:1px solid var(--line);border-radius:18px;background:#f8fbff">
+        <div style="font-weight:800;font-size:16px;margin-bottom:10px">Pengaturan Poin Hangus Otomatis</div>
+
+        <label>Masa aktif poin (hari)</label>
+        <input id="patch-point-expiry-days" type="number" min="1" value="${expiryDays}" />
+
+        <label style="margin-top:12px">Target poin minimal</label>
+        <input id="patch-point-target" type="number" min="1" value="${pointTarget}" />
+
+        <div class="footer-note" style="margin-top:10px">
+          Jika poin member belum mencapai <b id="patch-target-preview">${pointTarget}</b> poin dalam
+          <b id="patch-expiry-preview">${expiryDays}</b> hari, maka poin hangus otomatis.
+        </div>
+      </div>
+    `;
+
+    targetCard.appendChild(wrap);
+
+    document.getElementById("patch-point-expiry-days")?.addEventListener("change", function(){
+      const raw = JSON.parse(localStorage.getItem("fortuna_point_expiry_patch_v1") || "{}");
+      raw.pointExpiryDays = Number(this.value || 30);
+      localStorage.setItem("fortuna_point_expiry_patch_v1", JSON.stringify(raw));
+      document.getElementById("patch-expiry-preview").textContent = raw.pointExpiryDays;
+    });
+
+    document.getElementById("patch-point-target")?.addEventListener("change", function(){
+      const raw = JSON.parse(localStorage.getItem("fortuna_point_expiry_patch_v1") || "{}");
+      raw.pointTarget = Number(this.value || 100);
+      localStorage.setItem("fortuna_point_expiry_patch_v1", JSON.stringify(raw));
+      document.getElementById("patch-target-preview").textContent = raw.pointTarget;
+    });
+  }catch(err){
+    console.error("injectPointSettingsUI error:", err);
   }
+}
 
-  function installRenderPatch(){
-    if(typeof render !== "function" || render.__pointExpiryWrapped) return;
-    const originalRender = render;
-    window.render = function(...args){
-      const out = originalRender.apply(this, args);
-      setTimeout(() => injectPointSettingsUI(), 50);
-      return out;
-    };
-    window.render.__pointExpiryWrapped = true;
-  }
-
-  function installLoadPatch(){
-    if(typeof loadAllData !== "function" || loadAllData.__pointExpiryWrapped) return;
-    const originalLoad = loadAllData;
-
-    const wrapped = async function(...args){
-      const out = await originalLoad.apply(this, args);
-      applySettingsToAppState();
-      await autoExpirePoints();
-      return out;
-    };
-
-    wrapped.__pointExpiryWrapped = true;
-    wrapped.__originalPatchedLoad = originalLoad;
-    window.loadAllData = wrapped;
-  }
-
-  function installSubmitPatch(){
-    if(typeof submitTransaction !== "function" || submitTransaction.__pointExpiryWrapped) return;
-    const originalSubmit = submitTransaction;
-
-    window.submitTransaction = async function(...args){
-      const out = await originalSubmit.apply(this, args);
-      try{
-        if(typeof loadAllData === "function") await loadAllData();
-      }catch(e){}
-      return out;
-    };
-
-    window.submitTransaction.__pointExpiryWrapped = true;
-  }
-
-  function bootPointExpiryPatch(){
-    applySettingsToAppState();
-    installRenderPatch();
-    installLoadPatch();
-    installSubmitPatch();
-    injectPointSettingsUI();
-  }
-
-  if(document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", bootPointExpiryPatch);
-  }else{
-    bootPointExpiryPatch();
-  }
-
-  setTimeout(bootPointExpiryPatch, 500);
-  setTimeout(bootPointExpiryPatch, 1500);
-})();
+setTimeout(injectPointSettingsUI, 800);
+setTimeout(injectPointSettingsUI, 2000);
+injectPointSettingsUI();
 </script>
-</body>
-</html>
-
-</script>
-</body>
-</html>
-
 </body>
 </html>
